@@ -133,12 +133,29 @@ class RAFT(nn.Module):
 
         return flow_predictions
 
-    def forward(self, image1, image2, iters=5, flow_init=None,
+ 
+    def num_parameters(self):
+        return sum([p.data.nelement() if p.requires_grad else 0 for p in self.parameters()])
+
+    def init_weights(self):
+        for layer in self.named_modules():
+            if isinstance(layer, nn.Conv2d):
+                nn.init.kaiming_normal_(layer.weight)
+                if layer.bias is not None:
+                    nn.init.constant_(layer.bias, 0)
+            elif isinstance(layer, nn.ConvTranspose2d):
+                nn.init.kaiming_normal_(layer.weight)
+                if layer.bias is not None:
+                    nn.init.constant_(layer.bias, 0)
+
+    def forward(self, x, iters=5, flow_init=None,
                 upsample=True, test_mode=False, with_bk=False):
         """ Estimate optical flow between pair of frames """
+        n_frames = x.size(1) / 3
+        images = [x[:, 3 * i: 3 * i + 3] for i in range(int(n_frames))]
 
-        image1 = 2 * (image1 / 255.0) - 1.0
-        image2 = 2 * (image2 / 255.0) - 1.0
+        image1 = 2 * (images[0] / 255.0) - 1.0
+        image2 = 2 * (images[1] / 255.0) - 1.0
 
         image1 = image1.contiguous()
         image2 = image2.contiguous()
